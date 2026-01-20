@@ -24,4 +24,4 @@ This script is **unfinished** and currently focuses on basic interface selection
 ## Usage
 Make it executable:
 ```bash
-chmod +x interfacer.sh
+chmod +x Interfacer
