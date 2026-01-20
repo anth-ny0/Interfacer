@@ -1,0 +1,107 @@
+#!/bin/bash
+
+arr=($(ip -br a | awk '{print $1}' ))
+ip=($(ip -br a | awk '{print $3}' )) 
+opts=("Enable" "Disable" "Managed Mode" "Monitor Mode")
+
+PS3="What would you like to do? "
+
+for i in "${!arr[@]}"; do
+  	printf "%d) %s\n" "$((i + 1))" "${arr[$i]}"
+done
+
+while true; do
+  	read -rp "Pick an Interface (1-${#arr[@]}): " choice
+
+  	[[ $choice =~ ^[0-9]+$ ]] || { echo "Invalid: Enter a Valid Index."; continue; }
+
+  	(( choice >= 1 && choice <= ${#arr[@]} )) || { echo "Invalid: Out of Range."; continue; }
+
+  	index=$((choice - 1))
+
+  	echo "you chose ${arr[$index]}"
+  	break
+done
+
+
+
+
+run_with_loader() {
+  local msg="$1"; shift
+
+  # Start the command in the background
+  "$@" &
+  local cmd_pid=$!
+
+  # Loader (dots) while command runs
+  printf "%s" "$msg"
+  local dots=0
+  while kill -0 "$cmd_pid" 2>/dev/null; do
+    	printf "."
+    	dots=$((dots + 1))
+    # optionally wrap dots to avoid infinite line growth
+    	if (( dots % 10 == 0 )); then
+      		printf "\r%s" "$msg"
+    	fi
+    	sleep 0.1
+  done
+
+  # Collect command status
+  wait "$cmd_pid"
+  local rc=$?
+
+  # Finish line nicely
+  if (( rc == 0 )); then
+    	printf "\r%s... done\n" "$msg"
+  else
+    	printf "\r%s... failed (exit %d)\n" "$msg" "$rc"
+  fi
+
+  return "$rc"
+}
+
+
+check_sudo(){
+if sudo -n true 2>/dev/null; then
+	return
+fi
+
+echo "This Script Requires Sudo!"
+sudo -v || exit 1
+
+}
+
+check_sudo
+
+select choice in "${opts[@]}"; do
+	[[ -n $choice ]] || { echo "Invalid!"; continue; }
+
+	case $REPLY in
+		1) run_with_loader "Enabling ${arr[$index]}" sudo -n ip link set dev "${arr[$index]}" up
+		break
+		;;
+
+		2) run_with_loader "Disabling ${arr[$index]}" sudo -n ip link set dev "${arr[$index]}" down
+			break
+		;;
+		3) printf "Turning "${arr[$index]}" into Managed Mode %s"
+			for i in {1..5}; do
+				sleep .5
+				echo -ne "."
+			done
+			printf "\n"
+			break
+		;;
+			
+		4)printf "Turning "${arr[$index]}" into Monitor Mode %s"
+		 	for i in {1..5}; do
+				sleep .5
+				printf "."
+			done
+			printf "\n"
+			break
+		;;
+		*) echo "Invalid Selection!"
+	esac
+	
+done
